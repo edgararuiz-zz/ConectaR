@@ -1,7 +1,8 @@
-# ConectaR
+# R y Spark para la Ciencia de Datos
+## ConectaR 2019
 
-<!-- badges: start -->
-<!-- badges: end -->
+Los materiales de la charla estan disponibles en este repo:
 
-The goal of ConectaR is to ...
+- sparklyr.Rmd - Contiene los ejercicios que fueron revisados durante la sesion
 
+- conectar-r-spark.pdf - Contiene la presentacion 
