@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.RFormula","timestamp":1548293952279,"sparkVersion":"2.3.2","uid":"r_formula_11a84e04690b","paramMap":{"featuresCol":"features","labelCol":"label","formula":"atrasado ~ mes + dia + distancia","handleInvalid":"error","forceIndexLabel":false,"stringIndexerOrderType":"frequencyDesc"}}

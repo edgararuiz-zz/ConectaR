@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.VectorAssembler","timestamp":1548293955304,"sparkVersion":"2.3.2","uid":"r_formula_11a84e04690b","paramMap":{"outputCol":"features","inputCols":["mes","dia","distancia"]}}

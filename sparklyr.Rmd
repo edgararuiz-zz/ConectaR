@@ -1,0 +1,199 @@
+---
+title: "Usando R y Spark con sparklyr"
+output: html_notebook
+---
+
+## Paquetes necesarios
+
+Esta demostración utiliza dos paquetes que se pueden bajar desde CRAN.  El tercer paquete se tiene que bajar desde GitHub.  El paquete `datos` contiene versiones de diferentes tablas de datos utilizadas en los ejemplos de los paquetes `tidyverse`.
+
+```{r}
+
+if(!"datos" %in% rownames(installed.packages()))
+  devtools::install_github("cienciadedatos/datos")  
+
+library(dplyr, warn.conflicts = FALSE)
+library(sparklyr)
+library(datos)
+```
+
+## Para empezar
+
+- Instala Spark en tu computadora facilmente.  Esta acción solo se necesita una vez.
+```{r}
+spark_install()
+```
+
+- Crea una nueva sessión de Spark.
+```{r}
+sc <- spark_connect(master = "local")
+```
+
+- Exporta la tabla `vuelos` a Spark
+```{r}
+vuelos_spark <- copy_to(sc, vuelos, "vuelos_completos", overwrite = TRUE)
+```
+
+- Comandos de `dplyr` ahora se pueden utilizar en Spark.
+```{r}
+tally(vuelos_spark)
+```
+
+```{r}
+glimpse(vuelos_spark)
+```
+- El `pipe` (`%>%`) ahora se puede utilizar en el código.
+```{r}
+vuelos_spark %>%
+  filter(horario_salida > 1000) %>%
+  head()
+```
+
+- También podemos ver el comando SQL que es el resultado del código `dplyr`
+```{r}
+vuelos_spark %>%
+  filter(horario_salida > 1000) %>%
+  head() %>% 
+  show_query()
+```
+
+```{sql, connection = sc}
+select * from vuelos_completos limit 10
+```
+### Evaluación olgazan
+
+El paquete `sparklyr` soporta la misma evaluación olgazan (lazy-evaluation) que está disponible en `dplyr`
+
+```{r}
+df <- vuelos_spark %>%
+  filter_all(all_vars(!is.na(.))) 
+```
+
+```{r}
+df
+```
+
+## Transformadores de caractéristicas (Feature transformers)
+
+Los transformadores de caratéristicas disponibles en Spark tambien se pueden usar facilmente dentro de R
+
+```{r}
+ft_binarizer(
+  filter(vuelos_spark, !is.na(atraso_salida)),
+  input_col = "atraso_salida",
+  output_col = "atrasado",
+  threshold = 15
+  )
+```
+
+Los transformadores también pueden ser parte de código con pipes
+```{r}
+vuelos_spark %>%
+  filter(!is.na(atraso_salida)) %>%
+  ft_binarizer(
+    input_col = "atraso_salida",
+    output_col = "atrasado",
+    threshold = 15) %>%
+  group_by(atrasado) %>%
+  tally()
+  
+```
+
+## Modelar
+
+El modelo estadístico que se utiliza es un modelo proveido por Spark, no un modelo R
+```{r}
+modelo <- vuelos_spark %>%
+  filter(!is.na(horario_salida)) %>%
+  ml_linear_regression(horario_salida ~ distancia)
+
+modelo
+```
+
+Para ver los resultados en un formato mas familiar, puede usar `summary()`
+
+```{r}
+summary(modelo)
+```
+
+Ciertos modelos son compatibles con el paquete `broom` 
+
+```{r}
+broom::tidy(modelo)
+```
+
+## ML Pipelines
+
+
+```{r}
+pipeline_vuelos <- ml_pipeline(sc) %>%
+  ft_dplyr_transformer(
+    tbl = df
+  ) %>%
+  ft_binarizer(
+    input_col = "atraso_salida",
+    output_col = "atrasado",
+    threshold = 15
+  ) %>%
+  ft_r_formula(atrasado ~ mes + dia + distancia) %>% 
+  ml_logistic_regression()
+
+pipeline_vuelos
+```
+
+
+
+
+```{r}
+vuelos_particion <- sdf_partition(
+  df,
+  entrenamiento = 0.1,
+  resto = 0.9
+)
+```
+
+```{r}
+modelo_vuelos <- ml_fit(
+  pipeline_vuelos,
+  vuelos_particion$entrenamiento
+)
+
+modelo_vuelos
+```
+
+```{r}
+vuelos_particion$resto %>%
+  ml_transform(modelo_vuelos, .) %>%
+  select(prediction, atrasado) %>%
+  count(prediction, atrasado)
+```
+
+```{r}
+ml_save(
+  pipeline_vuelos,
+  "vuelos_pipeline",
+  overwrite = TRUE
+)
+
+ml_save(
+  modelo_vuelos,
+  "vuelos_modelo",
+  overwrite = TRUE
+)
+```
+
+
+```{r}
+recargar_modelo <- ml_load(sc, "vuelos_modelo")
+
+recargar_modelo
+```
+
+
+```{r}
+spark_disconnect(sc)
+```
+
+
+
+

@@ -1,0 +1,1 @@
+{"class":"org.apache.spark.ml.feature.Binarizer","timestamp":1548293952123,"sparkVersion":"2.3.2","uid":"binarizer_11a838197403","paramMap":{"outputCol":"atrasado","inputCol":"atraso_salida","threshold":15.0}}
